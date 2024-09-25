@@ -3,15 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transcrição do YouTube</title>
+    <title>Transcrição de Vídeos do YouTube</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <h1>Transcrição de Vídeos do YouTube</h1>
+        
+        <!-- Passo a Passo -->
+        <h2>Como Usar</h2>
+        <ol>
+            <li>Insira a URL do vídeo do YouTube no campo abaixo.</li>
+            <li>Selecione o idioma desejado para a transcrição.</li>
+            <li>Clique no botão "Gerar Transcrição".</li>
+            <li>Baixe o arquivo JSON com a transcrição do vídeo.</li>
+        </ol>
+
+        <!-- Formulário para URL e Seletor de Idioma -->
         <form method="POST" action="/">
             <label for="video_url">Insira a URL do vídeo do YouTube:</label>
             <input type="text" id="video_url" name="video_url" placeholder="https://youtube.com/watch?v=EXEMPLO" required>
+            
+            <label for="language">Selecione o Idioma:</label>
+            <select id="language" name="language">
+                <option value="en">Inglês</option>
+                <option value="pt">Português</option>
+                <option value="es">Espanhol</option>
+                <!-- Adicione mais opções de idioma conforme necessário -->
+            </select>
+
             <button type="submit">Gerar Transcrição</button>
         </form>
     </div>
