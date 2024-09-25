@@ -1,56 +1,52 @@
-from flask import Flask, render_template, request, send_file
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
-import json
-import re
 import os
+from flask import Flask, redirect, url_for, session
+from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
 app = Flask(__name__)
 
-# Função para extrair o ID do vídeo da URL
-def extract_video_id(url):
-    video_id_match = re.search(r"(v=|/v/|youtu\.be/|/live/|embed/|/watch\?v=)([a-zA-Z0-9_-]{11})", url)
-    if video_id_match:
-        return video_id_match.group(2)
-    return None
+# Carregar a SECRET_KEY do arquivo .env ou variáveis de ambiente
+app.secret_key = os.getenv('SECRET_KEY')
 
-# Função para extrair a transcrição do YouTube
-def get_transcription(video_id, language='en'):
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[language])
-        return transcript
-    except NoTranscriptFound:
-        print(f"Transcrição não disponível no idioma '{language}' para o vídeo.")
-        return None
-    except TranscriptsDisabled:
-        print("As transcrições estão desativadas para este vídeo.")
-        return None
-    except Exception as e:
-        print(f"Erro ao obter a transcrição: {e}")
-        return None
+# Configurar OAuth para Google
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('CLIENT_ID'),  # Pega CLIENT_ID do .env ou variáveis de ambiente
+    client_secret=os.getenv('CLIENT_SECRET'),  # Pega CLIENT_SECRET do .env ou variáveis de ambiente
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    authorize_params=None,
+    access_token_params=None,
+    refresh_token_url=None,
+    client_kwargs={'scope': 'openid profile email'}
+)
 
-# Rota principal para a página inicial
-@app.route('/', methods=['GET', 'POST'])
+# Rota de login para redirecionar o usuário para o Google
+@app.route('/login')
+def login():
+    redirect_uri = url_for('authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+# Rota de autorização para lidar com o retorno do Google
+@app.route('/authorize')
+def authorize():
+    token = google.authorize_access_token()
+    user_info = google.parse_id_token(token)
+    session['user'] = user_info
+    return redirect('/')
+
+# Rota principal que exibe as informações do usuário autenticado
+@app.route('/')
 def index():
-    if request.method == 'POST':
-        video_url = request.form['video_url']
-        language = request.form.get('language', 'en')  # Pega o idioma do formulário
-        video_id = extract_video_id(video_url)
-        
-        if video_id:
-            transcript = get_transcription(video_id, language)
-            if transcript:
-                output_file = f"transcription_{video_id}.json"
-                with open(output_file, 'w', encoding='utf-8') as json_file:
-                    json.dump(transcript, json_file, ensure_ascii=False, indent=4)
-                
-                return send_file(output_file, as_attachment=True)
-            else:
-                return "Nenhuma transcrição encontrada para o vídeo. Pode ser que as transcrições estejam desativadas ou o idioma não esteja disponível."
-        else:
-            return "URL inválida. Verifique a URL do vídeo."
-    
-    return render_template('index.html')
+    user = session.get('user')
+    if user:
+        return f'Logado como: {user["email"]}'
+    return 'Você não está logado. <a href="/login">Faça login com o Google</a>'
 
+# Rodar a aplicação Flask
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
